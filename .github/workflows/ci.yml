@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    # Both, because the maintainers work on macOS and Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build Simplepage.Umbraco.SafeMedia.sln -c Release
+
+      - name: Corpus
+        run: dotnet run --project tests/Simplepage.Umbraco.SafeMedia.Tests -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/Simplepage.Umbraco.SafeMedia -c Release --no-build -o artifacts
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: packages
+          path: artifacts/*

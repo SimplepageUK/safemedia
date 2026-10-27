@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Simplepage.Umbraco.SafeMedia</PackageId>
+    <Version>1.0.0</Version>
+    <Title>SafeMedia for Umbraco</Title>
+    <Authors>Simplepage Ltd</Authors>
+    <Company>Simplepage Ltd</Company>
+    <Copyright>Copyright (c) 2026 Simplepage Ltd</Copyright>
+    <Description>Refuses unsafe SVG uploads in Umbraco before they are stored. Parses rather than pattern matches, allowlists elements, and rejects rather than strips. Secure with zero configuration.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;umbraco-17;svg;security;xss;media;upload</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/SimplepageUK/safemedia</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SimplepageUK/safemedia</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Umbraco.Cms.Core" Version="[17.0.0, 18.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

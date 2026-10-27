@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Linked, not referenced: the validator compiles here with no Umbraco packages in scope,
+         so an Umbraco reference creeping into Svg/ breaks this build. That is the boundary test. -->
+    <Compile Include="../../src/Simplepage.Umbraco.SafeMedia/Svg/**/*.cs" Link="Svg/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="corpus/**/*.svg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,57 @@
+name: Release
+
+# Push a tag v1.2.3 matching <Version> in the csproj. Publishes to NuGet with Trusted Publishing:
+# no long-lived API key. Needs a Trusted Publishing policy on nuget.org for this repo and
+# workflow file, and a NUGET_USER secret holding the nuget.org account name that owns it.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: nuget
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check tag matches package version
+        shell: bash
+        run: |
+          version=$(grep -oP '(?<=<Version>)[^<]+' src/Simplepage.Umbraco.SafeMedia/Simplepage.Umbraco.SafeMedia.csproj)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match csproj version $version"
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build Simplepage.Umbraco.SafeMedia.sln -c Release
+
+      - name: Corpus
+        run: dotnet run --project tests/Simplepage.Umbraco.SafeMedia.Tests -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/Simplepage.Umbraco.SafeMedia -c Release --no-build -o artifacts
+
+      - name: NuGet login (Trusted Publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push
+        run: dotnet nuget push "artifacts/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md

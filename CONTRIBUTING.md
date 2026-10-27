@@ -1,0 +1,67 @@
+# Contributing
+
+Thank you. The test corpus matters more than the code, so samples are the most useful thing you can send.
+
+## 1. Bypasses
+
+An SVG that SafeMedia accepts but that runs script, loads something external, or otherwise does harm. **Report these privately** through [SECURITY.md](SECURITY.md), not as a pull request. Once a fix ships, the sample joins the corpus with credit to you.
+
+## 2. False positives
+
+Real artwork, exported by a real tool, that SafeMedia refuses. To add one:
+
+1. Put the file in `tests/Simplepage.Umbraco.SafeMedia.Tests/corpus/accept/`. Name it after the tool and what it shows, e.g. `figma-logo-with-drop-shadow.svg`.
+2. Run the tests. It will fail - that is the point of the pull request.
+3. Open a pull request saying which tool and version exported it, and with which settings.
+
+Please strip anything confidential first. A simplified file that reproduces the refusal is ideal.
+
+We won't accept every false positive. Some refusals are deliberate (see the README's known false positives), but each one gets a documented answer.
+
+## Adding a known-bad sample
+
+Once a bypass is public, or for a class of attack already covered, add it to `corpus/reject/`. Name it `description--reason.svg`, where `reason` is a word or phrase from the refusal message, with hyphens for spaces:
+
+```
+script-after-style--script.svg
+illustrator-save-as--DOCTYPE.svg
+```
+
+The test checks that the file is refused **for that reason**. A sample refused for the wrong reason, usually because it is malformed XML, proves nothing about the rule it was written for, so that counts as a failure.
+
+Cases in `Program.cs` follow the same rule: every `Expect(..., false, because)` names its reason.
+
+## Running the tests
+
+```
+dotnet build -c Release
+dotnet run --project tests/Simplepage.Umbraco.SafeMedia.Tests -c Release
+```
+
+It prints each case and ends with `N passed, 0 failed`. It exits non-zero on any failure.
+
+## Testing in a real back office
+
+The corpus proves the validator. It doesn't prove the Umbraco wiring, so any change under `Integration/` also needs a real upload. `tests/Simplepage.Umbraco.SafeMedia.TestSite` is a plain Umbraco 17 site with SafeMedia referenced from source:
+
+```
+dotnet run --project tests/Simplepage.Umbraco.SafeMedia.TestSite
+```
+
+It opens https://localhost:44356/umbraco. On the first run, Umbraco's installer asks you to create an admin login; the SQLite database stays on your machine and is not committed. Then go to **Media** and drag files in from the corpus:
+
+- every file in `corpus/reject/` should be refused with a message saying why, and nothing should appear in `wwwroot/media/`
+- every file in `corpus/accept/` should upload and show a thumbnail
+
+Check `wwwroot/media/` after a refusal as well as the message. The original version of this package showed a correct refusal while leaving the file on a public URL.
+
+## How the test project is built
+
+The test project compiles the validator directly from `src/Simplepage.Umbraco.SafeMedia/Svg/` with no Umbraco packages in scope. That folder must never reference Umbraco: if it does, the test build breaks, and that is deliberate.
+
+## Code
+
+- The validator (`Svg/`) is pure, static and Umbraco-free. The Umbraco wiring is in `Integration/`.
+- Reject, don't strip. Allowlist, don't blocklist. Parse, don't pattern match.
+- Every rule change comes with corpus cases that prove it: one that must be refused, and one real-world file that must still be accepted.
+- UK English in docs and messages.

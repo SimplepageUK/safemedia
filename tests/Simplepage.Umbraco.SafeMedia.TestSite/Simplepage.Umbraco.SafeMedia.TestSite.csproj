@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    A plain Umbraco 17 site with SafeMedia referenced from source, for testing uploads by hand
+    in a real back office. See CONTRIBUTING.md. Not packed, not deployed.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <CompressionEnabled>false</CompressionEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Keep these two on the same version. -->
+    <PackageReference Include="Umbraco.Cms" Version="17.7.2" />
+    <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="17.7.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Simplepage.Umbraco.SafeMedia/Simplepage.Umbraco.SafeMedia.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- App-local ICU, as the Umbraco template sets it up: on for Windows and Linux, off on macOS. -->
+    <UmbracoUseAppLocalIcu Condition="'$(UmbracoUseAppLocalIcu)' == '' and ($(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('win')) or ('$(RuntimeIdentifier)' == '' and !$([MSBuild]::IsOSPlatform('osx'))))">true</UmbracoUseAppLocalIcu>
+    <UmbracoUseAppLocalIcu Condition="'$(UmbracoUseAppLocalIcu)' == ''">false</UmbracoUseAppLocalIcu>
+    <UmbracoAppLocalIcuVersion>72.1.0.3</UmbracoAppLocalIcuVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UmbracoUseAppLocalIcu)' == 'true'">
+    <PackageReference Include="Microsoft.ICU.ICU4C.Runtime" Version="$(UmbracoAppLocalIcuVersion)" />
+    <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="$(UmbracoAppLocalIcuVersion)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CopyRazorGenerateFilesToPublishDirectory>true</CopyRazorGenerateFilesToPublishDirectory>
+    <RazorCompileOnBuild>false</RazorCompileOnBuild>
+    <RazorCompileOnPublish>false</RazorCompileOnPublish>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+</Project>

