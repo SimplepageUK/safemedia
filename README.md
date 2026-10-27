@@ -100,7 +100,7 @@ There is no Strict/Relaxed mode on purpose: each switch names the one thing you 
 
 ## Known false positives
 
-If SafeMedia refuses a file you think is legitimate, please [tell us](CONTRIBUTING.md#2-false-positives). These are the ones we know about:
+If SafeMedia refuses a file you think is legitimate, please [tell us](https://github.com/SimplepageUK/safemedia/blob/main/CONTRIBUTING.md#2-false-positives). These are the ones we know about:
 
 - **Illustrator "Save As" SVG** adds a `<!DOCTYPE>` and, with "Preserve Illustrator Editing Capabilities", a `<foreignObject>`. Use **File > Export > Export As > SVG** instead.
 - **Old icon sets** often start with `<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" ...>`. Delete that line; the image renders the same.
@@ -126,10 +126,10 @@ If SafeMedia refuses a file you think is legitimate, please [tell us](CONTRIBUTI
 
 **The corpus is the product.** A package like this is trusted for its test suite, not its code. We want two things, in this order:
 
-1. **Bypasses.** An SVG that runs script, loads something external, or otherwise does harm, and that SafeMedia accepts. Please report these privately - see [SECURITY.md](SECURITY.md) - and we will add it to the corpus with credit.
+1. **Bypasses.** An SVG that runs script, loads something external, or otherwise does harm, and that SafeMedia accepts. Please report these privately - see [SECURITY.md](https://github.com/SimplepageUK/safemedia/blob/main/SECURITY.md) - and we will add it to the corpus with credit.
 2. **False positives.** Real artwork from a real tool that SafeMedia refuses. These are harder to find than attacks and matter as much, because a package that refuses good logos gets uninstalled. Drop the file into `tests/Simplepage.Umbraco.SafeMedia.Tests/corpus/accept/` and open a pull request.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the tests.
+See [CONTRIBUTING.md](https://github.com/SimplepageUK/safemedia/blob/main/CONTRIBUTING.md) for how to run the tests.
 
 ## Credits
 

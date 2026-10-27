@@ -8,7 +8,7 @@
 
   <PropertyGroup>
     <PackageId>Simplepage.Umbraco.SafeMedia</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Title>SafeMedia for Umbraco</Title>
     <Authors>Simplepage Ltd</Authors>
     <Company>Simplepage Ltd</Company>

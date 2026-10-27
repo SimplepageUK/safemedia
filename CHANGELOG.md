@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 - 2026-10-27
+
+Documentation only. No code changes.
+
+- The package README said PDF support would follow in 1.1. 1.1 was the health check; PDF is next.
+- README links to SECURITY.md and CONTRIBUTING.md now point to GitHub, so they work on NuGet and the Umbraco Marketplace.
+- The README links to the Marketplace listing.
+
 ## 1.1.0 - 2026-10-27
 
 - Health check: **Settings > Health Check > Security > Unsafe SVGs in the media library.** Checks every SVG already stored, including the recycle bin, against the current rules and configuration. Reports each file that would be refused, with a link, the path and the reasons. Report only; it changes nothing.
