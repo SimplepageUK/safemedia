@@ -30,5 +30,8 @@ public sealed class SafeMediaComposer : IComposer
         builder.Services.Configure<MvcOptions>(options => options.Filters.Add<SvgTemporaryFileUploadFilter>());
 
         builder.AddNotificationHandler<MediaSavingNotification, SvgUploadGuard>();
+
+        // Used by SvgMediaHealthCheck, which Umbraco discovers by its [HealthCheck] attribute.
+        builder.Services.AddTransient<SvgMediaScanner>();
     }
 }

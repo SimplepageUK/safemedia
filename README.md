@@ -64,6 +64,14 @@ Three layers, outermost first.
 
 Why not just the save handler: in Umbraco 14+ the upload property editor copies the file into media storage *before* `MediaSavingNotification` fires. A handler that only cancels the save leaves the file on a public `/media/...` URL. We tested exactly that on Umbraco 17.7.2 before shipping. A cancelled save left the payload served as `image/svg+xml`.
 
+## Checking media that's already there
+
+Installing SafeMedia protects new uploads. It can't stop files that are already stored, and those are still served from your site. Go to **Settings > Health Check > Security** and run **Unsafe SVGs in the media library**.
+
+It checks every SVG in the media library, including the recycle bin, against today's rules and your current configuration. It also checks SVG files in the media folder that no media item points to. A refused upload in Umbraco 14+ can leave one of those behind if your only protection was a save-time handler.
+
+For each file that would be refused, it lists the media item (with a link to edit it), the file path and the reasons. It only reports: nothing is changed or deleted. Replace each one with a clean re-export, or delete it. Trashed files and files with no media item are still publicly served until they are removed from disk.
+
 ## Configuration
 
 None is needed. Every switch below only widens what is accepted, and the defaults are the strict ones except `<style>`.
@@ -110,8 +118,9 @@ If SafeMedia refuses a file you think is legitimate, please [tell us](CONTRIBUTI
 
 ## Roadmap
 
-- **1.1** - PDF: refuse JavaScript, launch actions and embedded files.
-- **1.2** - A health check that scans media uploaded before the package was installed and reports anything that would now be refused. Also an optional clean mode, for sites that would rather strip than reject.
+- **1.1** - Health check for SVGs already in the media library. *Released.*
+- **1.2** - PDF: refuse JavaScript, launch actions and embedded files.
+- **1.3** - An optional clean mode, for sites that would rather strip than reject.
 
 ## Contributing
 

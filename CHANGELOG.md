@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 - 2026-10-27
+
+- Health check: **Settings > Health Check > Security > Unsafe SVGs in the media library.** Checks every SVG already stored, including the recycle bin, against the current rules and configuration. Reports each file that would be refused, with a link, the path and the reasons. Report only; it changes nothing.
+- It also finds SVG files in the media folder that no media item references, such as those left by a save-time-only guard in Umbraco 14+.
+- Everything in the report is HTML-encoded, because the back office renders health check messages as HTML and media names are editor-controlled.
+- `SvgMediaScanner` is a public service, so the same scan can run from your own code or a scheduled job.
+
 ## 1.0.0 - 2026-10-27
 
 First release. SVG only.
