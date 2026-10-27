@@ -56,16 +56,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md
 
-      # The Marketplace scans NuGet for new packages once a day. Ask it to sync this one now,
-      # once NuGet has indexed the version. Best effort: a miss here just means waiting a day.
+      # Ask the Marketplace to sync this version now rather than at its next scheduled refresh.
+      # NuGet publishes in stages: the package download index updates first and search last,
+      # and a sync requested in between still sees the old version (1.1.0 did exactly that).
+      # So wait for search to report the new version, give the rest a few minutes, then ask.
+      # Best effort: a miss here just means waiting for the Marketplace's own refresh.
       - name: Umbraco Marketplace sync
         continue-on-error: true
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
-          url="https://api.nuget.org/v3-flatcontainer/simplepage.umbraco.safemedia/index.json"
-          for i in $(seq 1 30); do
-            if curl -fs "$url" | grep -q "\"$version\""; then
+          url="https://azuresearch-usnc.nuget.org/query?q=packageid:simplepage.umbraco.safemedia&prerelease=false"
+          for i in $(seq 1 60); do
+            if curl -fs "$url" | grep -q "\"version\":\"$version\""; then
+              sleep 300
               curl -fsS -X POST https://functions.marketplace.umbraco.com/api/InitiateSinglePackageSyncFunction \
                 -H "Content-Type: application/json" \
                 -d '{"PackageId":"Simplepage.Umbraco.SafeMedia"}'
@@ -73,4 +77,4 @@ jobs:
             fi
             sleep 60
           done
-          echo "NuGet had not indexed $version after 30 minutes; the Marketplace will pick it up in its daily scan."
+          echo "NuGet search did not show $version after 60 minutes; the Marketplace will pick it up on its own refresh."
