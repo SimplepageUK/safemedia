@@ -31,4 +31,4 @@ Only the latest minor version receives security fixes.
 
 In scope: anything SafeMedia accepts that can run script, load an external resource, read files from the server (XXE), or exhaust it (billion-laughs and similar) when the file is stored and served by Umbraco.
 
-Out of scope: file types SafeMedia does not handle yet (PDF arrives in 1.1), and Umbraco's own upload handling. Report those to [Umbraco](https://umbraco.com/about-us/trust-center/security-and-umbraco/how-to-report-a-vulnerability-in-umbraco/).
+Out of scope: file types SafeMedia does not handle yet (PDF is next on the roadmap), and Umbraco's own upload handling. Report those to [Umbraco](https://umbraco.com/about-us/trust-center/security-and-umbraco/how-to-report-a-vulnerability-in-umbraco/).

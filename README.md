@@ -2,7 +2,7 @@
 
 Refuses unsafe SVG uploads before they are stored.
 
-`Simplepage.Umbraco.SafeMedia` is free and MIT licensed, published by Simplepage Ltd. Version 1 covers SVG. PDF follows in 1.1.
+`Simplepage.Umbraco.SafeMedia` is free and MIT licensed, published by Simplepage Ltd. It's on [NuGet](https://www.nuget.org/packages/Simplepage.Umbraco.SafeMedia) and the [Umbraco Marketplace](https://marketplace.umbraco.com/package/simplepage.umbraco.safemedia). It covers SVG today; PDF is next.
 
 ```
 dotnet add package Simplepage.Umbraco.SafeMedia
