@@ -4,12 +4,21 @@
   "Description": "Refuses unsafe SVG uploads before they are stored. Turning on SVG uploads in Umbraco quietly opens stored cross-site scripting; SafeMedia closes it with a parser-based, allowlist validator that rejects rather than strips. Secure with zero configuration. Free and MIT licensed.",
   "Category": "Developer Tools",
   "AlternateCategory": "Editor Tools",
-  "LicenseTypes": [ "Free" ],
+  "LicenseTypes": [
+    "Free"
+  ],
   "PackageType": "Package",
-  "Tags": [ "security", "svg", "xss", "media", "upload" ],
+  "Tags": [
+    "security",
+    "svg",
+    "xss",
+    "media",
+    "upload"
+  ],
   "AuthorDetails": {
     "Name": "Simplepage Ltd",
-    "Url": "https://github.com/SimplepageUK"
+    "Url": "https://github.com/SimplepageUK",
+    "ImageUrl": "https://raw.githubusercontent.com/SimplepageUK/safemedia/main/assets/icon.png"
   },
   "DocumentationUrl": "https://github.com/SimplepageUK/safemedia#readme",
   "IssueTrackerUrl": "https://github.com/SimplepageUK/safemedia/issues",

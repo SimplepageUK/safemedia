@@ -17,6 +17,7 @@
     <PackageTags>umbraco;umbraco-marketplace;umbraco-17;svg;security;xss;media;upload</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/SimplepageUK/safemedia</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SimplepageUK/safemedia</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -34,5 +35,6 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>
