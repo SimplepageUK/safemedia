@@ -136,6 +136,20 @@ Expect("links on, script still refused", $"<svg {Ns}><a href=\"https://example.c
 Expect("images on, embedded SVG", $"<svg {Ns}><image href=\"data:image/svg+xml;base64,PHN2Zy8+\"/></svg>", false, "data:", images);
 Expect("images on, relative file", $"<svg {Ns}><image href=\"photo.jpg\"/></svg>", false, "outside the image", images);
 
+Console.WriteLine("\nMUST REJECT - rendering cost (GHSA-5f39-6hx3-pgrw, reported by Liam Laverty)\n");
+
+// A tiny file that makes the browser draw millions of shapes by nesting <use> references.
+// Measured in Chrome: 10^5 shapes render in 2.4s, 10^6 hang the tab.
+Expect("use loop: element references itself", $"<svg {Ns}><g id=\"a\"><use href=\"#a\"/></g></svg>", false, "loop back");
+Expect("use loop: two groups reference each other", $"<svg {Ns}><defs><g id=\"a\"><use href=\"#b\"/></g><g id=\"b\"><use href=\"#a\"/></g></defs><use href=\"#a\"/></svg>", false, "loop back");
+Expect("bomb via gradient-free url() chain", $"<svg {Ns}><defs><g id=\"a\"><rect width=\"1\" height=\"1\"/></g></defs>" + string.Concat(Enumerable.Range(0, 60001).Select(_ => "<use href=\"#a\"/>")) + "</svg>", false, "SVG bomb");
+Expect("lower limit switched on", $"<svg {Ns}><defs><g id=\"a\"><rect width=\"1\" height=\"1\"/></g></defs>" + string.Concat(Enumerable.Range(0, 200).Select(_ => "<use href=\"#a\"/>")) + "</svg>", false, "SVG bomb", new SvgSafetyOptions { MaxRenderedElements = 100 });
+
+// These would crash the whole site, not just refuse a file, if the walk were recursive:
+// a stack overflow ends the .NET process and cannot be caught.
+Expect("nesting 300 levels deep", $"<svg {Ns}>" + string.Concat(Enumerable.Repeat("<g>", 300)) + string.Concat(Enumerable.Repeat("</g>", 300)) + "</svg>", false, "nests elements");
+Expect("100,000-link reference chain", $"<svg {Ns}><defs><rect id=\"r0\" width=\"1\" height=\"1\"/>" + string.Concat(Enumerable.Range(1, 100_000).Select(i => $"<g id=\"r{i}\"><use href=\"#r{i - 1}\"/></g>")) + "</defs><use href=\"#r100000\"/></svg>", false, "SVG bomb");
+
 Console.WriteLine("\nMUST ACCEPT (real artwork - a false positive here means a broken logo)\n");
 
 Expect("minimal rect", $"<svg {Ns} width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\" fill=\"#E8630A\"/></svg>", true);

@@ -32,4 +32,13 @@ public sealed class SvgSafetyOptions
     /// webp). External image URLs and embedded SVG are still refused.
     /// </summary>
     public bool AllowEmbeddedImages { get; set; }
+
+    /// <summary>
+    /// The most shapes an SVG may draw once every &lt;use&gt; and url(#...) reference is expanded.
+    /// A file of a couple of kilobytes can nest references so the browser draws millions of shapes
+    /// and hangs (an "SVG bomb"). Measured in Chrome: 100,000 shapes take a couple of seconds,
+    /// 1,000,000 hang the tab. Real logos come to hundreds; raise this only for very large
+    /// illustrations such as detailed maps.
+    /// </summary>
+    public int MaxRenderedElements { get; set; } = 50_000;
 }

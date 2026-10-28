@@ -49,6 +49,7 @@ Every SVG is parsed and checked against an allowlist before Umbraco keeps it. If
 | Outside references | Any `href` that is not a `#fragment` in the same file, any CSS `url()` that is not a `#fragment`, `@import`, `image-set()`, `xml-stylesheet`, `<feImage>` |
 | Old CSS execution | `expression()`, `behavior`, `-moz-binding` |
 | Anything unreadable | DOCTYPE, malformed XML, invalid characters, `.svgz` (compressed, so it cannot be checked) |
+| Rendering bombs | Files that would draw more than 50,000 shapes once their `<use>` and `url(#...)` references are expanded, references that loop back on themselves, and nesting deeper than 256 levels. A 2 KB file can otherwise make the browser draw millions of shapes and hang |
 
 Editor metadata from Inkscape, Illustrator, Sketch and Affinity is allowed. Browsers don't render it.
 
@@ -105,7 +106,8 @@ None is needed. Every switch below only widens or narrows one named thing, and t
       "Svg": {
         "AllowStyleElement": true,
         "AllowLinks": false,
-        "AllowEmbeddedImages": false
+        "AllowEmbeddedImages": false,
+        "MaxRenderedElements": 50000
       },
       "Pdf": {
         "AllowLinks": true,
@@ -121,6 +123,7 @@ None is needed. Every switch below only widens or narrows one named thing, and t
 | `AllowStyleElement` | `true` | `<style>` blocks. Illustrator, Figma and Inkscape all export CSS classes, so refusing them would refuse most real logos. The CSS is still checked. Set `false` to remove the widest part of the surface. |
 | `AllowLinks` | `false` | `<a>` elements linking to http(s), mailto, tel or relative URLs. `javascript:`, `vbscript:` and `data:` are still refused. |
 | `AllowEmbeddedImages` | `false` | `<image>` with an embedded PNG, JPEG, GIF or WebP (`data:image/...;base64`). External image URLs and embedded SVG are still refused. |
+| `MaxRenderedElements` | `50000` | The most shapes an SVG may draw once references are expanded. Raise it only for very large illustrations such as detailed maps; around 1,000,000 hangs Chrome. |
 
 | Setting | Default | What it allows |
 |---|---|---|

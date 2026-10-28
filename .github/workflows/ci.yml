@@ -20,6 +20,16 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # Umbraco's installer writes a generated Imaging:HMACSecretKey into the test site's
+      # appsettings.json. It must never be committed.
+      - name: No secrets in tracked files
+        shell: bash
+        run: |
+          if git grep -nE '"HMACSecretKey"[[:space:]]*:[[:space:]]*"[^"]+"' -- .; then
+            echo "A generated secret is committed - remove it."
+            exit 1
+          fi
+
       - name: Build
         run: dotnet build Simplepage.Umbraco.SafeMedia.sln -c Release
 

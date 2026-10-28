@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1 - 2026-10-28
+
+Security fix: SVG bombs ([GHSA-5f39-6hx3-pgrw](https://github.com/SimplepageUK/safemedia/security/advisories/GHSA-5f39-6hx3-pgrw)). Reported by [Liam Laverty](https://github.com/liamlaverty) - thank you.
+
+- An SVG could nest `<use>` references so a 2 KB file made the browser draw millions of shapes and hang. Every element in it was allowed, so the element allowlist could not see it. SafeMedia now works out how many shapes a file draws once every `<use>`, `href="#..."` and `url(#...)` reference (including ones in stylesheets) is expanded, and refuses anything over the limit. Measured in Chrome: 100,000 shapes render in a couple of seconds; 1,000,000 hang the tab.
+- New option `Simplepage:SafeMedia:Svg:MaxRenderedElements`, default 50,000. Real logos come to hundreds.
+- References that loop back on themselves are refused, and so is element nesting deeper than 256 levels.
+- The check is linear and non-recursive, so a hostile file can't exhaust the server instead: a 100,000-link reference chain is refused in milliseconds.
+- CI now fails if a generated secret is committed. The test site's `appsettings.json` in 1.0.0 to 1.2.0 contained an image-signing key written by the Umbraco installer during testing; it was specific to that throwaway local site and is now removed.
+
 ## 1.2.0 - 2026-10-28
 
 PDF support.

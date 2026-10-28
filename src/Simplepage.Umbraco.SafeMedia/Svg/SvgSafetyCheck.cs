@@ -142,6 +142,9 @@ public static class SvgSafetyCheck
             // node, which the loop then skips, so whatever came after a <style> went unchecked.
             StringBuilder? styleContent = null;
 
+            // How much the file draws once references are expanded - see SvgReferenceGraph.
+            var graph = new SvgReferenceGraph();
+
             while (reader.Read())
             {
                 switch (reader.NodeType)
@@ -152,7 +155,14 @@ public static class SvgSafetyCheck
                             problems.Add("contains markup inside a <style> element");
                         }
 
+                        if (reader.Depth > SvgReferenceGraph.MaxDepth)
+                        {
+                            // Stop reading: everything deeper would only repeat this.
+                            return SvgSafetyResult.Unsafe(problems.Append("nests elements more deeply than any real image does").ToList());
+                        }
+
                         CheckElement(reader, options, problems);
+                        graph.OpenElement(reader);
 
                         if (IsStyleElement(reader.LocalName) && !reader.IsEmptyElement)
                         {
@@ -172,9 +182,13 @@ public static class SvgSafetyCheck
                             // <style> is allowed because exported artwork routinely uses CSS
                             // classes, but its body still gets checked: CSS can reach outward
                             // with @import and url(), and old engines honour expression().
-                            CheckCss(styleContent.ToString(), problems);
+                            var css = styleContent.ToString();
+                            CheckCss(css, problems);
+                            graph.AddStylesheet(css);
                             styleContent = null;
                         }
+
+                        graph.CloseElement();
                         break;
 
                     case XmlNodeType.ProcessingInstruction:
@@ -189,6 +203,21 @@ public static class SvgSafetyCheck
                 if (problems.Count >= 10)
                 {
                     break; // enough to reject; no value in listing more
+                }
+            }
+
+            if (problems.Count == 0)
+            {
+                switch (graph.Evaluate(options.MaxRenderedElements))
+                {
+                    case SvgReferenceGraph.Verdict.Loop:
+                        problems.Add("contains references that loop back on themselves");
+                        break;
+
+                    case SvgReferenceGraph.Verdict.TooLarge:
+                        problems.Add($"would draw more than {options.MaxRenderedElements:N0} shapes when displayed, "
+                            + "which can hang the browser (an SVG bomb)");
+                        break;
                 }
             }
         }
@@ -370,7 +399,7 @@ public static class SvgSafetyCheck
     /// Comments are deliberately left in place: in CSS a comment separates tokens, so it can
     /// break a keyword apart but never hide one.
     /// </summary>
-    private static string DecodeCssEscapes(string css)
+    internal static string DecodeCssEscapes(string css)
     {
         if (!css.Contains('\\'))
         {

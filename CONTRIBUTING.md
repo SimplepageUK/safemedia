@@ -61,6 +61,8 @@ It opens https://localhost:44356/umbraco. On the first run, Umbraco's installer 
 
 Check `wwwroot/media/` after a refusal as well as the message. The original version of this package showed a correct refusal while leaving the file on a public URL.
 
+**Don't commit what the installer writes into `appsettings.json`.** It adds `Umbraco:CMS:Global:Id` and a generated `Imaging:HMACSecretKey`. Discard those changes before committing; CI fails if a key is committed.
+
 ## How the test project is built
 
 The test project compiles the validator directly from `src/Simplepage.Umbraco.SafeMedia/Svg/` with no Umbraco packages in scope. That folder must never reference Umbraco: if it does, the test build breaks, and that is deliberate.
