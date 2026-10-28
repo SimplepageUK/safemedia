@@ -8,6 +8,7 @@ PDF support.
 - Two checks, both must pass. First the document as a reader sees it, through PdfPig: compressed object streams unpacked, escaped names decoded, actions allowlisted wherever they appear. Then every byte of the file, ignoring its index, so objects hidden outside the index (after `%%EOF`, in unlisted compressed streams, left over from earlier edits) are still checked.
 - Refused: JavaScript, actions beyond navigation (launch, submit form, import data, open another file, media), attached files, XFA forms, links to anything but http, https and mailto, encrypted or unreadable files, and files that don't start with a PDF header.
 - Leftover objects outside the index are accepted with a warning when nothing dangerous is in them. The warning shows in the back office in Umbraco's warning style.
+- A back office extension (`App_Plugins/Simplepage.SafeMedia`, one JavaScript file, no build step) shows warnings on newly created media. Umbraco 17.7 and earlier drop notification messages from create responses, so drag-and-drop uploads would otherwise never show them. The package now uses the Razor SDK to ship it as a static web asset.
 - Options under `Simplepage:SafeMedia:Pdf`: `AllowLinks` (default on) and `AllowAttachments` (default off).
 - New dependency: PdfPig 0.1.16 (Apache-2.0, no dependencies of its own).
 - The health check is now "Unsafe files in the media library" and covers PDFs.

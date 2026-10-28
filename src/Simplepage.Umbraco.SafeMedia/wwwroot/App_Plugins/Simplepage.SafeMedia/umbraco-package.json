@@ -1,0 +1,12 @@
+{
+  "name": "Simplepage.Umbraco.SafeMedia",
+  "alias": "Simplepage.SafeMedia",
+  "extensions": [
+    {
+      "type": "backofficeEntryPoint",
+      "alias": "Simplepage.SafeMedia.Warnings",
+      "name": "SafeMedia warnings on new media",
+      "js": "/App_Plugins/Simplepage.SafeMedia/safemedia-warnings.js"
+    }
+  ]
+}

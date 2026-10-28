@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Core.IO;
@@ -41,19 +43,28 @@ public sealed class SafeMediaSaveGuard : INotificationHandler<MediaSavingNotific
     private readonly MediaFileManager _mediaFileManager;
     private readonly IMediaService _mediaService;
     private readonly MediaFileInspector _inspector;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<SafeMediaSaveGuard> _logger;
+
+    /// <summary>
+    /// Carries a warning for a newly created item to the back office extension in
+    /// App_Plugins/Simplepage.SafeMedia. See <see cref="AddWarning"/>.
+    /// </summary>
+    internal const string WarningHeader = "X-SafeMedia-Warning";
 
     public SafeMediaSaveGuard(
         ITemporaryFileService temporaryFileService,
         MediaFileManager mediaFileManager,
         IMediaService mediaService,
         MediaFileInspector inspector,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<SafeMediaSaveGuard> logger)
     {
         _temporaryFileService = temporaryFileService;
         _mediaFileManager = mediaFileManager;
         _mediaService = mediaService;
         _inspector = inspector;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -86,8 +97,7 @@ public sealed class SafeMediaSaveGuard : INotificationHandler<MediaSavingNotific
                         if (inspection.WarningMessage is not null
                             && (storedPath is null || IsWrittenBySave(storedPath, raw, media, property, value.Culture, value.Segment)))
                         {
-                            notification.Messages.Add(new EventMessage(
-                                inspection.WarningTitle, inspection.WarningMessage, EventMessageType.Warning));
+                            AddWarning(notification, media, inspection);
                         }
 
                         continue;
@@ -110,6 +120,44 @@ public sealed class SafeMediaSaveGuard : INotificationHandler<MediaSavingNotific
             }
         }
     }
+
+    /// <summary>
+    /// Shows a warning on a save that goes ahead.
+    ///
+    /// WHY A NEW ITEM GETS A HEADER INSTEAD OF AN EVENT MESSAGE
+    ///
+    /// Event messages reach the back office in the Umb-Notifications response header. In Umbraco
+    /// 17.7 and earlier, the back office rebuilds the response to a request that CREATES an item
+    /// (the one carrying Umb-Generated-Resource) and keeps only x- headers, so a message on a
+    /// create is silently dropped - which is every drag-and-drop upload. Umbraco fixed that in
+    /// 17.8. Until every site is there, a warning on a new item goes in our own x- header, which
+    /// survives the rebuild, and the back office extension shows it. Updates keep the standard
+    /// route. Each warning goes by one route only, so nothing is shown twice on 17.8+.
+    /// </summary>
+    private void AddWarning(MediaSavingNotification notification, IMedia media, MediaInspection inspection)
+    {
+        var response = _httpContextAccessor.HttpContext?.Response;
+
+        if (media.HasIdentity || response is null || response.HasStarted)
+        {
+            notification.Messages.Add(new EventMessage(
+                inspection.WarningTitle, inspection.WarningMessage!, EventMessageType.Warning));
+            return;
+        }
+
+        // A JSON array, URL-encoded so it is plain ASCII as a header value must be. Appended to,
+        // in case one request saves more than one item.
+        var warnings = response.Headers.TryGetValue(WarningHeader, out var existing)
+            ? JsonSerializer.Deserialize<List<HeaderWarning>>(Uri.UnescapeDataString(existing.ToString())) ?? new List<HeaderWarning>()
+            : new List<HeaderWarning>();
+
+        warnings.Add(new HeaderWarning(inspection.WarningTitle, inspection.WarningMessage!));
+        response.Headers[WarningHeader] = Uri.EscapeDataString(JsonSerializer.Serialize(warnings));
+    }
+
+    private sealed record HeaderWarning(
+        [property: JsonPropertyName("title")] string Title,
+        [property: JsonPropertyName("message")] string Message);
 
     /// <summary>
     /// Null when there is nothing to check - which is NOT the same as "safe", and is why the

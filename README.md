@@ -82,6 +82,8 @@ Three layers, outermost first.
 
 3. **At save.** A `MediaSavingNotification` handler re-checks any `.svg` or `.pdf` on the media item, cancels the save with the same message, and deletes the file if the save has just written it. This covers files already in the media library before the package was installed: they are re-checked the next time anyone saves them. It is also where a PDF warning is shown.
 
+A small back office extension (`App_Plugins/Simplepage.SafeMedia`) makes sure that warning appears on drag-and-drop uploads too. Umbraco 17.7 and earlier drop notification messages from any response that creates an item, so for a new item SafeMedia sends the warning in its own header and the extension shows it. Umbraco fixed this in 17.8; the extension is harmless there and nothing is shown twice.
+
 Why not just the save handler: in Umbraco 14+ the upload property editor copies the file into media storage *before* `MediaSavingNotification` fires. A handler that only cancels the save leaves the file on a public `/media/...` URL. We tested exactly that on Umbraco 17.7.2 before shipping. A cancelled save left the payload served as `image/svg+xml`.
 
 ## Checking media that's already there
@@ -145,8 +147,6 @@ If SafeMedia refuses a file you think is legitimate, please [tell us](https://gi
 |---|---|
 | Umbraco | 17.x |
 | .NET | 10 |
-
-**PDF warnings on Umbraco 17.7 and earlier:** the warning shows when an editor replaces the file on an existing media item, but not when the upload creates a new one. The back office drops notification messages from responses that create an item; that is an Umbraco issue, fixed in 17.8. The file is still checked and still accepted or refused the same way.
 
 **Umbraco 13 is not supported.** Its upload pipeline is different (no temporary file service; the file is written during the save request), so it would need a separate integration and a second CI matrix. Umbraco 13 reaches the end of security support in December 2026. If you need it, open an issue - the validator itself has no Umbraco dependency and would carry over unchanged.
 
