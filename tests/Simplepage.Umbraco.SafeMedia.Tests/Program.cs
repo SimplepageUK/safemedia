@@ -1,4 +1,5 @@
 using System.Text;
+using Simplepage.Umbraco.SafeMedia.Pdf;
 using Simplepage.Umbraco.SafeMedia.Svg;
 
 // Known-bad and known-good corpus. Compiles the validator from src/ via a linked Compile item,
@@ -178,6 +179,55 @@ foreach (var (folder, shouldBeSafe) in new[] { ("accept", true), ("reject", fals
         var because = split > 0 ? stem[(split + 2)..].Replace('-', ' ') : null;
 
         Record($"{folder}/{Path.GetFileName(file)}", SvgSafetyCheck.Check(stream), shouldBeSafe, shouldBeSafe ? null : because);
+    }
+}
+
+// PDF corpus: accept/ must pass with no warnings, warn/ must pass WITH the named warning,
+// reject/ must be refused for the named reason. Generated samples come from corpus/pdf/generate.py.
+var pdfCorpus = Path.Combine(corpus, "pdf");
+
+foreach (var folder in new[] { "accept", "warn", "reject" })
+{
+    var directory = Path.Combine(pdfCorpus, folder);
+    if (!Directory.Exists(directory))
+    {
+        continue;
+    }
+
+    Console.WriteLine($"\nPDF CORPUS - {folder.ToUpperInvariant()}\n");
+
+    foreach (var file in Directory.EnumerateFiles(directory, "*.pdf").Order(StringComparer.Ordinal))
+    {
+        using var stream = File.OpenRead(file);
+        var result = PdfSafetyCheck.Check(stream);
+
+        var stem = Path.GetFileNameWithoutExtension(file);
+        var split = stem.IndexOf("--", StringComparison.Ordinal);
+        var because = split > 0 ? stem[(split + 2)..].Replace('-', ' ') : null;
+
+        bool Mentions(IEnumerable<string> lines) =>
+            because is null || lines.Any(l => l.Contains(because, StringComparison.OrdinalIgnoreCase));
+
+        var ok = folder switch
+        {
+            "accept" => result.IsSafe && result.Warnings.Count == 0,
+            "warn" => result.IsSafe && result.Warnings.Count > 0 && Mentions(result.Warnings),
+            _ => !result.IsSafe && Mentions(result.Problems),
+        };
+
+        if (ok) { pass++; } else { fail++; }
+
+        var verdict = !result.IsSafe ? "REJECTED" : result.Warnings.Count > 0 ? "WARNED" : "ACCEPTED";
+        Console.WriteLine($"{(ok ? "  ok  " : "  FAIL")}  {folder}/{Path.GetFileName(file),-62} {verdict}");
+
+        if (!result.IsSafe)
+        {
+            Console.WriteLine($"          -> {string.Join("; ", result.Problems)}");
+        }
+        else if (result.Warnings.Count > 0)
+        {
+            Console.WriteLine($"          -> warning: {string.Join("; ", result.Warnings)}");
+        }
     }
 }
 

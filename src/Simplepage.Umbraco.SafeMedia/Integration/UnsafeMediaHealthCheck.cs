@@ -5,8 +5,8 @@ using Umbraco.Cms.Core.HealthChecks;
 namespace Simplepage.Umbraco.SafeMedia.Integration;
 
 /// <summary>
-/// Settings > Health Check > Security: lists SVGs already in the media library that SafeMedia
-/// would refuse today.
+/// Settings > Health Check > Security: lists SVGs and PDFs already in the media library that
+/// SafeMedia would refuse today.
 ///
 /// EVERYTHING IN THE MESSAGE IS HTML-ENCODED
 ///
@@ -16,17 +16,17 @@ namespace Simplepage.Umbraco.SafeMedia.Integration;
 /// </summary>
 [HealthCheck(
     "a50d83e7-40e6-451f-b639-53bace106da2",
-    "Unsafe SVGs in the media library",
-    Description = "Checks every SVG already stored in the media library, including the recycle bin, against SafeMedia's upload rules.",
+    "Unsafe files in the media library",
+    Description = "Checks every SVG and PDF already stored in the media library, including the recycle bin, against SafeMedia's upload rules.",
     Group = "Security")]
-public sealed class SvgMediaHealthCheck : HealthCheck
+public sealed class UnsafeMediaHealthCheck : HealthCheck
 {
     /// <summary>Enough to act on; the log has the rest.</summary>
     private const int MaxListed = 50;
 
-    private readonly SvgMediaScanner _scanner;
+    private readonly MediaScanner _scanner;
 
-    public SvgMediaHealthCheck(SvgMediaScanner scanner) => _scanner = scanner;
+    public UnsafeMediaHealthCheck(MediaScanner scanner) => _scanner = scanner;
 
     public override Task<IEnumerable<HealthCheckStatus>> GetStatusAsync() =>
         Task.FromResult<IEnumerable<HealthCheckStatus>>(new[] { Report(_scanner.Scan()) });
@@ -34,11 +34,11 @@ public sealed class SvgMediaHealthCheck : HealthCheck
     public override HealthCheckStatus ExecuteAction(HealthCheckAction action) =>
         throw new InvalidOperationException("This health check only reports; it has no actions.");
 
-    private static HealthCheckStatus Report(SvgMediaScanResult scan)
+    private static HealthCheckStatus Report(MediaScanResult scan)
     {
         if (scan.CheckedCount == 0)
         {
-            return new HealthCheckStatus("There are no SVG files in the media library.")
+            return new HealthCheckStatus("There are no SVG or PDF files in the media library.")
             {
                 ResultType = StatusResultType.Success,
             };
@@ -46,7 +46,7 @@ public sealed class SvgMediaHealthCheck : HealthCheck
 
         if (scan.Refused.Count == 0)
         {
-            return new HealthCheckStatus($"Checked {Plural(scan.CheckedCount, "SVG file")}. All of them would be accepted by SafeMedia today.")
+            return new HealthCheckStatus($"Checked {Plural(scan.CheckedCount, "SVG or PDF file")}. All of them would be accepted by SafeMedia today.")
             {
                 ResultType = StatusResultType.Success,
             };
@@ -54,7 +54,7 @@ public sealed class SvgMediaHealthCheck : HealthCheck
 
         var html = new StringBuilder();
         html.Append(WebUtility.HtmlEncode(
-            $"{scan.Refused.Count} of {Plural(scan.CheckedCount, "SVG file")} in the media library would be refused if uploaded today. "
+            $"{scan.Refused.Count} of {Plural(scan.CheckedCount, "SVG or PDF file")} in the media library would be refused if uploaded today. "
             + "They were stored before SafeMedia was installed, or while it was configured to allow more. "
             + "Each is still served from this site, so treat it as untrusted: replace it with a clean re-export, or delete it."));
 

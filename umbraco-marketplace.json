@@ -1,7 +1,7 @@
 {
   "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
   "Title": "SafeMedia",
-  "Description": "Refuses unsafe SVG uploads before they are stored. Turning on SVG uploads in Umbraco quietly opens stored cross-site scripting; SafeMedia closes it with a parser-based, allowlist validator that rejects rather than strips. Secure with zero configuration. Free and MIT licensed.",
+  "Description": "Refuses unsafe SVG and PDF uploads before they are stored. Allowing SVG uploads in Umbraco quietly opens stored cross-site scripting, and a PDF can carry scripts and launch actions to anyone who downloads it. SafeMedia checks every file with parser-based, allowlist rules that reject rather than strip, and a health check finds unsafe files already in your media library. Secure with zero configuration. Free and MIT licensed.",
   "Category": "Developer Tools",
   "AlternateCategory": "Editor Tools",
   "LicenseTypes": [
@@ -11,6 +11,7 @@
   "Tags": [
     "security",
     "svg",
+    "pdf",
     "xss",
     "media",
     "upload"

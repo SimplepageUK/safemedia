@@ -8,13 +8,13 @@
 
   <PropertyGroup>
     <PackageId>Simplepage.Umbraco.SafeMedia</PackageId>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Title>SafeMedia for Umbraco</Title>
     <Authors>Simplepage Ltd</Authors>
     <Company>Simplepage Ltd</Company>
     <Copyright>Copyright (c) 2026 Simplepage Ltd</Copyright>
-    <Description>Refuses unsafe SVG uploads in Umbraco before they are stored. Parses rather than pattern matches, allowlists elements, and rejects rather than strips. Secure with zero configuration.</Description>
-    <PackageTags>umbraco;umbraco-marketplace;umbraco-17;svg;security;xss;media;upload</PackageTags>
+    <Description>Refuses unsafe SVG and PDF uploads in Umbraco before they are stored. Parses rather than pattern matches, allowlists what is safe, and rejects rather than strips. Includes a health check for files already in the media library. Secure with zero configuration.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;umbraco-17;svg;pdf;security;xss;media;upload</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
@@ -31,6 +31,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Umbraco.Cms.Core" Version="[17.0.0, 18.0.0)" />
+    <!-- PDF parsing for Pdf/. Apache-2.0, managed, no dependencies of its own. -->
+    <PackageReference Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
 
   <ItemGroup>

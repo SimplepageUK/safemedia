@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Simplepage.Umbraco.SafeMedia.Pdf;
 using Simplepage.Umbraco.SafeMedia.Svg;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
@@ -21,17 +22,23 @@ public sealed class SafeMediaComposer : IComposer
             .AddOptions<SvgSafetyOptions>()
             .BindConfiguration(SvgSafetyOptions.SectionName);
 
+        builder.Services
+            .AddOptions<PdfSafetyOptions>()
+            .BindConfiguration(PdfSafetyOptions.SectionName);
+
+        builder.Services.AddSingleton<MediaFileInspector>();
+
         builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IFileStreamSecurityAnalyzer, SvgFileStreamSecurityAnalyzer>());
+            ServiceDescriptor.Singleton<IFileStreamSecurityAnalyzer, SafeMediaFileStreamAnalyzer>());
 
         // Three layers, outermost first: the upload filter refuses with a message the editor can
         // act on; the analyzer refuses anything that reaches the temporary file service another
         // way; the save guard catches what neither saw and cleans up after it.
-        builder.Services.Configure<MvcOptions>(options => options.Filters.Add<SvgTemporaryFileUploadFilter>());
+        builder.Services.Configure<MvcOptions>(options => options.Filters.Add<SafeMediaUploadFilter>());
 
-        builder.AddNotificationHandler<MediaSavingNotification, SvgUploadGuard>();
+        builder.AddNotificationHandler<MediaSavingNotification, SafeMediaSaveGuard>();
 
-        // Used by SvgMediaHealthCheck, which Umbraco discovers by its [HealthCheck] attribute.
-        builder.Services.AddTransient<SvgMediaScanner>();
+        // Used by UnsafeMediaHealthCheck, which Umbraco discovers by its [HealthCheck] attribute.
+        builder.Services.AddTransient<MediaScanner>();
     }
 }

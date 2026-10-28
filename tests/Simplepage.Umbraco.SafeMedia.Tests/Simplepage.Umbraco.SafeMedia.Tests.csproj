@@ -7,9 +7,14 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Linked, not referenced: the validator compiles here with no Umbraco packages in scope,
-         so an Umbraco reference creeping into Svg/ breaks this build. That is the boundary test. -->
+    <!-- Linked, not referenced: the validators compile here with no Umbraco packages in scope,
+         so an Umbraco reference creeping into Svg/ or Pdf/ breaks this build. That is the boundary test. -->
     <Compile Include="../../src/Simplepage.Umbraco.SafeMedia/Svg/**/*.cs" Link="Svg/%(RecursiveDir)%(Filename)%(Extension)" />
-    <None Include="corpus/**/*.svg" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../src/Simplepage.Umbraco.SafeMedia/Pdf/**/*.cs" Link="Pdf/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="corpus/**/*.svg;corpus/**/*.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Pdf/ depends on PdfPig and nothing else. Keep in step with the package project. -->
+    <PackageReference Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
 </Project>

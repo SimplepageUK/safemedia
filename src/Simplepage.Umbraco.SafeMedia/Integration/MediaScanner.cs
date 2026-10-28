@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Simplepage.Umbraco.SafeMedia.Svg;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Models;
@@ -9,7 +7,7 @@ using Umbraco.Cms.Core.Services;
 namespace Simplepage.Umbraco.SafeMedia.Integration;
 
 /// <summary>
-/// Checks every SVG already in the media library against the same rules as an upload.
+/// Checks every SVG and PDF already in the media library against the same rules as an upload.
 ///
 /// The upload filter, analyzer and save guard only see files as they arrive. Anything stored
 /// before the package was installed - or while it was configured more leniently - is still on
@@ -19,32 +17,31 @@ namespace Simplepage.Umbraco.SafeMedia.Integration;
 /// Report only: it never deletes or alters a file. Kept separate from the health check so a
 /// scheduled job or command can reuse it.
 /// </summary>
-public sealed class SvgMediaScanner
+public sealed class MediaScanner
 {
     private const int PageSize = 500;
 
     private readonly IMediaService _mediaService;
     private readonly MediaFileManager _mediaFileManager;
-    private readonly IOptionsMonitor<SvgSafetyOptions> _options;
-    private readonly ILogger<SvgMediaScanner> _logger;
+    private readonly MediaFileInspector _inspector;
+    private readonly ILogger<MediaScanner> _logger;
 
-    public SvgMediaScanner(
+    public MediaScanner(
         IMediaService mediaService,
         MediaFileManager mediaFileManager,
-        IOptionsMonitor<SvgSafetyOptions> options,
-        ILogger<SvgMediaScanner> logger)
+        MediaFileInspector inspector,
+        ILogger<MediaScanner> logger)
     {
         _mediaService = mediaService;
         _mediaFileManager = mediaFileManager;
-        _options = options;
+        _inspector = inspector;
         _logger = logger;
     }
 
-    public SvgMediaScanResult Scan()
+    public MediaScanResult Scan()
     {
-        var options = _options.CurrentValue;
         var checkedCount = 0;
-        var refused = new List<RefusedSvgMedia>();
+        var refused = new List<RefusedMedia>();
         var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long pageIndex = 0;
         long total;
@@ -62,15 +59,14 @@ public sealed class SvgMediaScanner
                     {
                         var raw = value.EditedValue as string ?? value.PublishedValue as string;
 
-                        if (string.IsNullOrWhiteSpace(raw)
-                            || !raw.Contains(".svg", StringComparison.OrdinalIgnoreCase))
+                        if (string.IsNullOrWhiteSpace(raw) || !MediaFileInspector.MightReferToCheckedFile(raw))
                         {
                             continue;
                         }
 
-                        var result = Check(media, property, value.Culture, value.Segment, options, out var path);
+                        var inspection = Check(media, property, value.Culture, value.Segment, out var path);
 
-                        if (result is null)
+                        if (inspection is null)
                         {
                             continue;
                         }
@@ -82,9 +78,9 @@ public sealed class SvgMediaScanner
                             claimed.Add(Normalise(path));
                         }
 
-                        if (!result.IsSafe)
+                        if (!inspection.IsSafe)
                         {
-                            refused.Add(new RefusedSvgMedia(media.Key, media.Name ?? string.Empty, path ?? raw, media.Trashed, result.Problems));
+                            refused.Add(new RefusedMedia(media.Key, media.Name ?? string.Empty, path ?? raw, inspection.Kind, media.Trashed, inspection.Problems));
                         }
                     }
                 }
@@ -95,7 +91,7 @@ public sealed class SvgMediaScanner
         // Files on disk that no media item points at. A cancelled save in v14+ leaves exactly
         // this behind (the upload is copied into storage before MediaSaving can refuse it), so
         // a site that ran a save-time-only guard can have hostile files no media item shows.
-        foreach (var path in SvgFilesOnDisk(string.Empty))
+        foreach (var path in CheckedFilesOnDisk(string.Empty))
         {
             if (claimed.Contains(Normalise(path)))
             {
@@ -103,28 +99,28 @@ public sealed class SvgMediaScanner
             }
 
             checkedCount++;
-            var result = CheckFile(path, options);
+            var inspection = CheckFile(path);
 
-            if (!result.IsSafe)
+            if (!inspection.IsSafe)
             {
-                refused.Add(new RefusedSvgMedia(null, string.Empty, path, false, result.Problems));
+                refused.Add(new RefusedMedia(null, string.Empty, path, inspection.Kind, false, inspection.Problems));
             }
         }
 
         foreach (var item in refused)
         {
             _logger.LogWarning(
-                "SafeMedia scan: stored SVG {Path} (media '{Name}', {Key}) would be refused. Reasons: {Reasons}",
-                item.Name, item.Key, item.Path, string.Join("; ", item.Problems));
+                "SafeMedia scan: stored {Kind} {Path} (media '{Name}', {Key}) would be refused. Reasons: {Reasons}",
+                item.Kind, item.Path, item.Name, item.Key, string.Join("; ", item.Problems));
         }
 
         _logger.LogInformation(
-            "SafeMedia scan checked {Checked} SVG files; {Refused} would be refused.", checkedCount, refused.Count);
+            "SafeMedia scan checked {Checked} files; {Refused} would be refused.", checkedCount, refused.Count);
 
-        return new SvgMediaScanResult(checkedCount, refused);
+        return new MediaScanResult(checkedCount, refused);
     }
 
-    private IEnumerable<string> SvgFilesOnDisk(string directory)
+    private IEnumerable<string> CheckedFilesOnDisk(string directory)
     {
         var fileSystem = _mediaFileManager.FileSystem;
 
@@ -132,8 +128,7 @@ public sealed class SvgMediaScanner
         // honours the same way.
         foreach (var file in fileSystem.GetFiles(directory))
         {
-            if (file.EndsWith(".svg", StringComparison.OrdinalIgnoreCase)
-                || file.EndsWith(".svgz", StringComparison.OrdinalIgnoreCase))
+            if (MediaFileInspector.Handles(file))
             {
                 yield return file;
             }
@@ -141,38 +136,32 @@ public sealed class SvgMediaScanner
 
         foreach (var child in fileSystem.GetDirectories(directory))
         {
-            foreach (var file in SvgFilesOnDisk(child))
+            foreach (var file in CheckedFilesOnDisk(child))
             {
                 yield return file;
             }
         }
     }
 
-    private SvgSafetyResult CheckFile(string path, SvgSafetyOptions options)
+    private MediaInspection CheckFile(string path)
     {
-        if (path.EndsWith(".svgz", StringComparison.OrdinalIgnoreCase))
-        {
-            return SvgSafetyResult.Unsafe(new[] { "is a compressed SVG (.svgz), which cannot be checked" });
-        }
-
         try
         {
             using var stream = _mediaFileManager.FileSystem.OpenFile(path);
-            return SvgSafetyCheck.Check(stream, options);
+            return _inspector.Inspect(path, stream) ?? MediaFileInspector.Unreadable(path);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "SafeMedia could not read {Path} while scanning.", path);
-            return SvgSafetyResult.Unsafe(new[] { "could not be read for checking" });
+            return MediaFileInspector.Unreadable(path);
         }
     }
 
     private string Normalise(string path) =>
         _mediaFileManager.FileSystem.GetRelativePath(path).Replace('\\', '/').Trim('/');
 
-    /// <summary>Null when the value does not resolve to an SVG file - not the same as safe.</summary>
-    private SvgSafetyResult? Check(
-        IMedia media, IProperty property, string? culture, string? segment, SvgSafetyOptions options, out string? path)
+    /// <summary>Null when the value does not resolve to a file SafeMedia checks - not the same as safe.</summary>
+    private MediaInspection? Check(IMedia media, IProperty property, string? culture, string? segment, out string? path)
     {
         path = null;
 
@@ -180,33 +169,23 @@ public sealed class SvgMediaScanner
         {
             using var stored = _mediaFileManager.GetFile(media, out path, property.Alias, culture, segment);
 
-            if (string.IsNullOrWhiteSpace(path))
+            if (string.IsNullOrWhiteSpace(path) || !MediaFileInspector.Handles(path))
             {
                 return null;
             }
 
-            if (path.EndsWith(".svgz", StringComparison.OrdinalIgnoreCase))
-            {
-                return SvgSafetyResult.Unsafe(new[] { "is a compressed SVG (.svgz), which cannot be checked" });
-            }
-
-            if (!path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            return SvgSafetyCheck.Check(stored, options);
+            return _inspector.Inspect(path, stored);
         }
         catch (Exception ex)
         {
             // Fail CLOSED, as at upload: a file that cannot be read is also one nobody has checked.
-            _logger.LogError(ex, "SafeMedia could not read SVG on media '{Name}' ({Key}) while scanning.", media.Name, media.Key);
-            return SvgSafetyResult.Unsafe(new[] { "could not be read for checking" });
+            _logger.LogError(ex, "SafeMedia could not read the file on media '{Name}' ({Key}) while scanning.", media.Name, media.Key);
+            return path is null ? null : MediaFileInspector.Unreadable(path);
         }
     }
 }
 
-public sealed record SvgMediaScanResult(int CheckedCount, IReadOnlyList<RefusedSvgMedia> Refused);
+public sealed record MediaScanResult(int CheckedCount, IReadOnlyList<RefusedMedia> Refused);
 
 /// <summary>Key is null for a file on disk that no media item references.</summary>
-public sealed record RefusedSvgMedia(Guid? Key, string Name, string Path, bool InRecycleBin, IReadOnlyList<string> Problems);
+public sealed record RefusedMedia(Guid? Key, string Name, string Path, string Kind, bool InRecycleBin, IReadOnlyList<string> Problems);
