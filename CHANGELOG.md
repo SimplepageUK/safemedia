@@ -60,7 +60,7 @@ PDF support.
 - Fixed: the scan log line from 1.1 wrote the file path where the media name should be.
 - PDF corpus: 33 cases, generated hostile samples (`corpus/pdf/generate.py`) plus real exports from Chrome and macOS.
 
-## 1.1.1 - 2026-10-27
+## 1.1.1 - 2026-10-28
 
 Documentation only. No code changes.
 
