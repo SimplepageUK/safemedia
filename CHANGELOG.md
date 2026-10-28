@@ -2,13 +2,47 @@
 
 ## 1.2.1 - 2026-10-28
 
-Security fix: SVG bombs ([GHSA-5f39-6hx3-pgrw](https://github.com/SimplepageUK/safemedia/security/advisories/GHSA-5f39-6hx3-pgrw)). Reported by [Liam Laverty](https://github.com/liamlaverty) - thank you.
+Security fix for "SVG bombs" ([GHSA-5f39-6hx3-pgrw](https://github.com/SimplepageUK/safemedia/security/advisories/GHSA-5f39-6hx3-pgrw)). Reported by [Liam Laverty](https://github.com/liamlaverty) - thank you.
 
-- An SVG could nest `<use>` references so a 2 KB file made the browser draw millions of shapes and hang. Every element in it was allowed, so the element allowlist could not see it. SafeMedia now works out how many shapes a file draws once every `<use>`, `href="#..."` and `url(#...)` reference (including ones in stylesheets) is expanded, and refuses anything over the limit. Measured in Chrome: 100,000 shapes render in a couple of seconds; 1,000,000 hang the tab.
-- New option `Simplepage:SafeMedia:Svg:MaxRenderedElements`, default 50,000. Real logos come to hundreds.
-- References that loop back on themselves are refused, and so is element nesting deeper than 256 levels.
-- The check is linear and non-recursive, so a hostile file can't exhaust the server instead: a 100,000-link reference chain is refused in milliseconds.
-- CI now fails if a generated secret is committed. The test site's `appsettings.json` in 1.0.0 to 1.2.0 contained an image-signing key written by the Umbraco installer during testing; it was specific to that throwaway local site and is now removed.
+### What was wrong
+
+An SVG can reuse a shape by referring to it, so it doesn't have to be drawn out in full each time. Nest those references - a group that repeats a shape ten times, inside a group that repeats that ten times, and so on - and a 2 KB file can make the browser draw millions of shapes. The page hangs or crashes for anyone who views it, including editors previewing it in the back office. Every part of such a file is otherwise legitimate, so SafeMedia used to accept it.
+
+### What changed
+
+SafeMedia now works out how many shapes an SVG will actually draw, once every reference is followed, and refuses the file if that is more than a set limit. The editor sees: *"This SVG was not saved because it would draw more than 50,000 shapes when displayed, which can hang the browser (an SVG bomb)."*
+
+It also refuses files whose references loop back on themselves, and files nested more than 256 levels deep. No real image does either.
+
+### The new setting: `MaxRenderedElements`
+
+This is the most shapes an SVG is allowed to draw. **The default is 50,000, and almost every site can leave it alone.**
+
+- A typical logo or icon draws a few hundred shapes at most, and a detailed illustration a few thousand.
+- We tested the limit in Chrome: 100,000 shapes took a couple of seconds to draw; 1,000,000 froze the browser tab. 50,000 leaves a wide margin below the point where browsers struggle.
+- **Raise it** only if your site genuinely hosts very large SVGs - a detailed map or a complex technical drawing - and editors are seeing them refused as "SVG bombs". Keep it well under 1,000,000.
+- **Lower it** if your site only ever uses logos and icons and you want to be stricter.
+
+To change it, add this to `appsettings.json` (the number is the limit you want):
+
+```json
+{
+  "Simplepage": {
+    "SafeMedia": {
+      "Svg": {
+        "MaxRenderedElements": 100000
+      }
+    }
+  }
+}
+```
+
+Files already in the media library are re-checked against the current limit by the health check (**Settings > Health Check > Security > Unsafe files in the media library**).
+
+### Also in this release
+
+- The check runs in a fraction of a second even on deliberately awkward files, so a hostile upload can't slow the server down instead of the browser.
+- The test site's `appsettings.json` in 1.0.0 to 1.2.0 contained an image-signing key that Umbraco's installer generated during local testing. It belonged only to that throwaway test site and is now removed; the build now fails if a key is ever committed again.
 
 ## 1.2.0 - 2026-10-28
 
