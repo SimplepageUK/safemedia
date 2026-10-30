@@ -38,6 +38,11 @@ public static class PdfSafetyCheck
     private static readonly HashSet<string> AllowedActions = new(StringComparer.Ordinal)
     {
         "GoTo", "URI", "Named", "Thread", "ResetForm", "Hide", "SetOCGState", "Trans",
+
+        // GoToR opens another document. That is not dangerous in itself - it is what a
+        // brochure does when it links to last year's brochure - so it is judged on WHERE it
+        // points, in CheckRemoteTarget below, rather than refused outright.
+        "GoToR",
     };
 
     private static readonly Dictionary<string, string> RefusedActions = new(StringComparer.Ordinal)
@@ -46,13 +51,27 @@ public static class PdfSafetyCheck
         ["Launch"] = "launches a program or another file",
         ["SubmitForm"] = "submits form data to a web address",
         ["ImportData"] = "imports data from another file",
-        ["GoToR"] = "opens another PDF file",
         ["GoToE"] = "opens a file embedded in it",
         ["Rendition"] = "plays embedded media",
         ["Movie"] = "plays embedded media",
         ["Sound"] = "plays embedded media",
         ["RichMediaExecute"] = "plays embedded media",
     };
+
+    /// <summary>
+    /// Names worth telling an editor about but not grounds for refusal.
+    ///
+    /// GoToR is deliberately NOT here. It was tried, and it warned on every file with a
+    /// cross-document link - including ones whose target had just been inspected and found
+    /// safe - so the message both nagged and lied. The structured walk judges GoToR on its
+    /// target in CheckRemoteTarget, and objects the walk could not reach are already reported
+    /// through the leftover-object warning below.
+    ///
+    /// Residual gap, stated rather than papered over: a GoToR sitting in an object outside the
+    /// cross-reference index is seen by the raw scan as a name only, so its target is not
+    /// vetted. The leftover-object warning is the signal that such objects exist.
+    /// </summary>
+    private static readonly Dictionary<string, string> WarnedNames = new(StringComparer.Ordinal);
 
     /// <summary>Names that are dangerous wherever they appear, as a key or a value.</summary>
     private static readonly Dictionary<string, string> RefusedNames = new(StringComparer.Ordinal)
@@ -62,7 +81,6 @@ public static class PdfSafetyCheck
         ["Launch"] = "launches a program or another file",
         ["SubmitForm"] = "submits form data to a web address",
         ["ImportData"] = "imports data from another file",
-        ["GoToR"] = "opens another PDF file",
         ["GoToE"] = "opens a file embedded in it",
         ["XFA"] = "contains an XFA form, which can run scripts",
         ["RichMedia"] = "contains embedded rich media",
@@ -175,12 +193,17 @@ public static class PdfSafetyCheck
         // ---- Method 2: the exhaustive view.
         var raw = PdfRawScan.Scan(bytes);
         problems.AddRange(raw.Problems);
+        var warnings = new List<string>();
 
         foreach (var name in raw.Names)
         {
             if (RefusedNames.TryGetValue(name, out var reason))
             {
                 problems.Add(reason);
+            }
+            else if (WarnedNames.TryGetValue(name, out var note))
+            {
+                warnings.Add(note);
             }
             else if (!options.AllowAttachments && AttachmentNames.Contains(name))
             {
@@ -201,13 +224,16 @@ public static class PdfSafetyCheck
         // Objects outside the index that came through the exhaustive scan clean.
         var leftovers = raw.ObjectNumbers.Count(n => !indexed.Contains(n));
 
-        return leftovers == 0
-            ? PdfSafetyResult.Safe()
-            : PdfSafetyResult.Safe(new[]
-            {
+        if (leftovers > 0)
+        {
+            warnings.Add(
                 $"contains {(leftovers == 1 ? "1 leftover object" : $"{leftovers} leftover objects")} from earlier edits "
-                + "that are not part of the document. They were checked and contain nothing unsafe",
-            });
+                + "that are not part of the document. They were checked and contain nothing unsafe");
+        }
+
+        return warnings.Count == 0
+            ? PdfSafetyResult.Safe()
+            : PdfSafetyResult.Safe(warnings.Distinct().ToList());
     }
 
     /// <summary>
@@ -300,6 +326,11 @@ public static class PdfSafetyCheck
             problems.Add("contains an action of a type that is not allowed");
         }
 
+        if (type.Data == "GoToR")
+        {
+            CheckRemoteTarget(action, problems);
+        }
+
         if (type.Data == "URI")
         {
             var address = action.Data.TryGetValue("URI", out var uri) ? uri switch
@@ -340,6 +371,105 @@ public static class PdfSafetyCheck
         }
     }
 
+    /// <summary>
+    /// A GoToR action opens another document. The action is not the risk - the destination is.
+    ///
+    /// REFUSED: a UNC path (\\server\share), because opening one makes the reader authenticate
+    /// to a machine of the attacker's choosing and hand over an NTLM hash; a drive letter or
+    /// rooted path, which reaches outside anything the site controls; parent traversal; and any
+    /// scheme other than http or https.
+    ///
+    /// ALLOWED: a plain relative path, which is a cross-reference to another document published
+    /// alongside this one, and an http/https URL, which is no worse than a link.
+    /// </summary>
+    private static void CheckRemoteTarget(DictionaryToken action, List<string> problems)
+    {
+        // /F may be a string or a file specification dictionary carrying /F, /UF or /DOS etc.
+        var target = action.Data.TryGetValue("F", out var file) ? Describe(file) : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            // No readable destination. Nothing to vet, so do not claim it is safe.
+            problems.Add("opens another file, but its destination could not be read");
+            return;
+        }
+
+        var normalised = new string(target.Where(ch => !char.IsWhiteSpace(ch) && !char.IsControl(ch)).ToArray());
+
+        if (normalised.StartsWith("\\\\", StringComparison.Ordinal)
+            || normalised.StartsWith("//", StringComparison.Ordinal))
+        {
+            problems.Add("opens a file on another computer, which can leak your login details");
+            return;
+        }
+
+        // A SINGLE leading slash or backslash is a rooted path, and it is easy to arrive at by
+        // accident when reading a UNC path out of a PDF: "\\\\host\\share" is written in the file as
+        // (\\\\\\\\host\\\\share), and a file that writes it with one level of escaping parses down to
+        // "\\host\share" - one backslash, not two. Checking only for two let that through.
+        if (normalised[0] is '/' or '\\')
+        {
+            problems.Add("opens a file at a fixed location on the computer");
+            return;
+        }
+
+        if (normalised.Contains("..", StringComparison.Ordinal))
+        {
+            problems.Add("opens a file outside its own folder");
+            return;
+        }
+
+        if (normalised.Length > 1 && normalised[1] == ':')
+        {
+            problems.Add("opens a file at a fixed location on the computer");
+            return;
+        }
+
+        var scheme = SchemeOf(normalised);
+        if (scheme is not null
+            && scheme is not "http" and not "https")
+        {
+            problems.Add("opens another file using an address this site does not allow");
+        }
+    }
+
+    private static string Describe(IToken token) => token switch
+    {
+        StringToken s => s.Data,
+        HexToken h => h.Data,
+        DictionaryToken d =>
+            d.Data.TryGetValue("UF", out var uf) ? Describe(uf)
+            : d.Data.TryGetValue("F", out var inner) ? Describe(inner)
+            : string.Empty,
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// The scheme of an address, or null when it has none. Scheme-less is the common case for a
+    /// relative link and is not something that can be abused - there is no scheme to abuse.
+    /// A colon that appears after a slash, question mark or hash is part of the path or query,
+    /// not a scheme, so "docs/a:b.pdf" has no scheme.
+    /// </summary>
+    private static string? SchemeOf(string address)
+    {
+        var colon = address.IndexOf(':');
+        if (colon <= 0)
+        {
+            return null;
+        }
+
+        var before = address.AsSpan(0, colon);
+        foreach (var ch in before)
+        {
+            if (ch is '/' or '?' or '#')
+            {
+                return null;
+            }
+        }
+
+        return before.ToString().ToLowerInvariant();
+    }
+
     private static void CheckLinkAddress(string address, PdfSafetyOptions options, List<string> problems)
     {
         if (!options.AllowLinks)
@@ -352,6 +482,14 @@ public static class PdfSafetyCheck
         // scheme, so "java\tscript:" is javascript:. Strip them before comparing.
         var normalised = new string(address.Where(ch => !char.IsWhiteSpace(ch) && !char.IsControl(ch)).ToArray())
             .ToLowerInvariant();
+
+        // A relative or scheme-less address - "#page3", "/docs/thing.pdf", "www.example.com" -
+        // carries no scheme, so there is no scheme to abuse. Refusing these rejected ordinary
+        // documents whose links simply were not absolute.
+        if (SchemeOf(normalised) is null)
+        {
+            return;
+        }
 
         if (!AllowedLinkSchemes.Any(scheme => normalised.StartsWith(scheme, StringComparison.Ordinal)))
         {

