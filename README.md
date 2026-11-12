@@ -1,8 +1,8 @@
 # SafeMedia for Umbraco
 
-Refuses unsafe SVG and PDF uploads before they are stored.
+Refuses unsafe SVG and PDF uploads before they are stored, in the media library and in Umbraco Forms file upload fields.
 
-`Simplepage.Umbraco.SafeMedia` is free and MIT licensed, published by Simplepage Ltd. It's on [NuGet](https://www.nuget.org/packages/Simplepage.Umbraco.SafeMedia) and the [Umbraco Marketplace](https://marketplace.umbraco.com/package/simplepage.umbraco.safemedia). It checks SVG and PDF files.
+`Simplepage.Umbraco.SafeMedia` is free and MIT licensed, published by Simplepage Ltd. It's on [NuGet](https://www.nuget.org/packages/Simplepage.Umbraco.SafeMedia) and the [Umbraco Marketplace](https://marketplace.umbraco.com/package/simplepage.umbraco.safemedia). It checks SVG and PDF files, and works with or without Umbraco Forms installed.
 
 ```
 dotnet add package Simplepage.Umbraco.SafeMedia

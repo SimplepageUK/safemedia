@@ -15,8 +15,8 @@
     <Authors>Simplepage Ltd</Authors>
     <Company>Simplepage Ltd</Company>
     <Copyright>Copyright (c) 2026 Simplepage Ltd</Copyright>
-    <Description>Refuses unsafe SVG and PDF uploads in Umbraco before they are stored. Parses rather than pattern matches, allowlists what is safe, and rejects rather than strips. Includes a health check for files already in the media library. Secure with zero configuration.</Description>
-    <PackageTags>umbraco;umbraco-marketplace;umbraco-17;svg;pdf;security;xss;media;upload</PackageTags>
+    <Description>Refuses unsafe SVG and PDF uploads in Umbraco before they are stored, in the media library and in Umbraco Forms file upload fields. Parses rather than pattern matches, allowlists what is safe, and rejects rather than strips. Includes a health check for files already in the media library. Secure with zero configuration.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;umbraco-17;umbraco-forms;forms;svg;pdf;security;xss;media;upload</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>

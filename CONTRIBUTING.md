@@ -109,6 +109,14 @@ dotnet build tests/Simplepage.Umbraco.SafeMedia.TestSite -p:NoForms=true -o <emp
 
 Then run the built `.dll` from the test site folder and check `/umbraco` returns 200. (`/` returns 500 if your test page renders a form, which needs Forms.)
 
+## Before you tag a release
+
+NuGet cannot change a published version's description, tags or README, so anything wrong in them stays until the next version. Check these before tagging, not after.
+
+- `Version` in the package project matches the tag (CI checks this), and `CHANGELOG.md` has a `## <version> - <date>` section, because the release notes come from it.
+- If the release adds a capability, the package `Description` and `PackageTags` mention it, and so does the opening of the README. These are what the NuGet and Marketplace listings show.
+- Anything under `Integration/` has had a real upload (see "Testing in a real back office"), and, if it touches Forms, a boot without Forms.
+
 ## Gotchas
 
 - **2026-11-12. The test site returns 500 "Boot failed" on a fresh clone.** Symptom: `/` and `/umbraco` both return 500, and the log says `Configured database is reporting as not being available` with `SQLite Error 14: unable to open database file`. No installer appears. Cause: the SQLite database file does not exist yet. Reproduced in a fresh clone of `main` with none of the 1.3.0 changes, so it is not caused by them. Fix: create the database with an unattended install in `appsettings.Local.json`, as described under "Testing in a real back office".
