@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 - 2026-11-12
+
+No change to what SafeMedia does. The package description, tags and README now say that it covers Umbraco Forms file uploads as well as the media library, so the NuGet and Marketplace listings match 1.3.0. The `umbraco-forms` and `forms` tags make it findable by people looking for a Forms upload check.
+
 ## 1.3.0 - 2026-11-11
 
 Umbraco Forms file uploads are now checked by file name as well as content. Nothing to configure, and nothing changes on a site without Forms.
