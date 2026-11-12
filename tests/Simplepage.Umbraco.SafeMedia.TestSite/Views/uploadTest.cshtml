@@ -1,0 +1,30 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@*
+    Template for the test site's Forms upload page. See "Testing Forms uploads" in CONTRIBUTING.md.
+
+    It renders the form named in Simplepage:TestSite:FormId, set in appsettings.Local.json so the id
+    stays on your machine. A Forms submit posts back through Umbraco's content routing, so the form
+    has to be on a published page like this one; it does not work from a plain MVC route.
+
+    Creating a template named uploadTest in the back office re-saves this file with a byte order
+    mark added. That is harmless; discard it with: git checkout -- tests/Simplepage.Umbraco.SafeMedia.TestSite/Views/uploadTest.cshtml
+*@
+@{
+	Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head><title>Forms upload test</title></head>
+<body>
+    @if (Guid.TryParse(Configuration["Simplepage:TestSite:FormId"], out var formId))
+    {
+        @await Component.InvokeAsync("RenderForm", new { formId, theme = "default" })
+        @await Component.InvokeAsync("RenderFormScripts", new { formId, theme = "default" })
+    }
+    else
+    {
+        <p>Set <code>Simplepage:TestSite:FormId</code> in appsettings.Local.json to the id of a Forms form.</p>
+    }
+</body>
+</html>

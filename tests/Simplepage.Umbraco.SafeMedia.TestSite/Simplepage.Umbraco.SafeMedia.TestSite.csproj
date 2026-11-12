@@ -18,6 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- For the Forms upload checks. Run with -p:NoForms=true to prove SafeMedia still installs and
+         boots on a site without Forms. -->
+    <PackageReference Include="Umbraco.Forms" Version="17.6.2" Condition="'$(NoForms)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Simplepage.Umbraco.SafeMedia/Simplepage.Umbraco.SafeMedia.csproj" />
   </ItemGroup>
 

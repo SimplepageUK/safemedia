@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.3.0 - 2026-11-11
+
+Umbraco Forms file uploads are now checked by file name as well as content. Nothing to configure, and nothing changes on a site without Forms.
+
+### What was already working
+
+If your site uses Umbraco Forms, SafeMedia was already refusing most hostile SVG and PDF files posted through a Forms file upload field. Forms runs the same file checks Umbraco uses for media, and SafeMedia plugs into those. We confirmed this by submitting the whole test corpus through a real Forms form.
+
+### What was not
+
+Those checks are given the contents of a file and not its name, so they decide what a file is by looking at its first bytes. Three kinds of file got past that and were stored:
+
+- a web page with a script in it, named `.svg`
+- a web page named `.pdf`
+- a `.pdf` with anything before its `%PDF-` header
+
+On media uploads these are caught by name. Forms had no equivalent.
+
+### What changed
+
+SafeMedia now also checks every `.svg`, `.svgz` and `.pdf` posted through a Forms file upload field, by file name, using the same rules as media. A refused file is not stored and the form is shown again with an error on that field.
+
+**The person submitting the form sees a generic message**, *"The file uploaded is not allowed."*, the same one Forms uses itself. Form uploads are anonymous, so the specific reason (for example "contains JavaScript") is not shown on the page. It is written to the Umbraco log, with the file name, as a warning beginning *"SafeMedia refused ... upload ... from a Forms submission"*.
+
+Tested against Umbraco Forms 17.6.2 on Umbraco 17.7.2: every file in the corpus that should be accepted was, and every file that should be refused was.
+
+### Safer serving of Forms uploads
+
+Umbraco Forms serves uploaded files from the same address as the back office, with nothing to stop a browser running a script inside them. We checked: a stored SVG containing a script ran as soon as it was opened by a logged-in editor. Refusing these at upload is the main protection, but it does not help with a file that was stored before SafeMedia was installed, or one that a future gap lets through.
+
+So SafeMedia now also sets headers on files served from the Forms upload folder:
+
+- every file gets `X-Content-Type-Options: nosniff`, which stops a browser guessing a different file type from the one it was sent as
+- SVGs get `Content-Security-Policy: sandbox`, so they still display but their scripts cannot run
+
+This takes effect on files already stored, not just new ones. It applies **only to the Forms upload folder**: your media library, and every SVG or image used on your pages, is untouched.
+
+PDFs are left alone by default, because a sandbox stops the browser's built-in PDF viewer. A PDF that runs script is already refused at upload.
+
+It is configurable under `Simplepage:SafeMedia:Serving`: turn it off, change which folders it covers, or serve SVGs and PDFs as downloads instead (`Attachment`). See the README. If your uploads are in cloud storage and served from its own URL, this does not see those requests and the storage's own headers apply.
+
+### Sites without Forms
+
+SafeMedia does not depend on Umbraco Forms and installs and starts exactly as before without it. The check matches Forms' submit action by name, so no Forms code is loaded.
+
+This was a deliberate choice, and a tested one. The more obvious route is a handler for Forms' own validation event, but a package that contains a type naming a Forms class stops Umbraco starting on a site that does not have Forms: Umbraco inspects every type in an installed package at boot, and that inspection fails. We built it that way first and watched it happen.
+
+### Scanning on your infrastructure
+
+If your files go to cloud storage with its own malware scanning, such as Microsoft Defender for Storage, keep it. The two do different jobs. Defender looks for known malware. SafeMedia refuses SVGs and PDFs that carry active content, which is not malware and which a malware scanner has no reason to flag.
+
 ## 1.2.2 - 2026-10-30
 
 Fewer false refusals on ordinary PDFs, and one real hole closed while testing the change.

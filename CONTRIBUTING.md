@@ -54,7 +54,30 @@ The corpus proves the validator. It doesn't prove the Umbraco wiring, so any cha
 dotnet run --project tests/Simplepage.Umbraco.SafeMedia.TestSite
 ```
 
-It opens https://localhost:44356/umbraco. On the first run, Umbraco's installer asks you to create an admin login; the SQLite database stays on your machine and is not committed. Then go to **Media** and drag files in from the corpus:
+It opens https://localhost:44356/umbraco. On the first run, Umbraco's installer should ask you to create an admin login; the SQLite database stays on your machine and is not committed.
+
+**If instead you get a 500 "Boot failed" and the log says `SQLite Error 14: unable to open database file`**, the database does not exist yet and the installer is not offered. Create it with an unattended install: add this to `tests/Simplepage.Umbraco.SafeMedia.TestSite/appsettings.Local.json` (gitignored, and only read in a Debug build), with an email and password of your choosing, and run again.
+
+```json
+{
+  "ConnectionStrings": {
+    "umbracoDbDSN": "Data Source=|DataDirectory|/Umbraco.sqlite.db;Cache=Shared;Foreign Keys=True;Pooling=True",
+    "umbracoDbDSN_ProviderName": "Microsoft.Data.Sqlite"
+  },
+  "Umbraco": {
+    "CMS": {
+      "Unattended": {
+        "InstallUnattended": true,
+        "UnattendedUserName": "Your Name",
+        "UnattendedUserEmail": "you@example.test",
+        "UnattendedUserPassword": "<a password>"
+      }
+    }
+  }
+}
+```
+
+Then go to **Media** and drag files in from the corpus:
 
 - every file in `corpus/reject/` should be refused with a message saying why, and nothing should appear in `wwwroot/media/`
 - every file in `corpus/accept/` should upload and show a thumbnail
@@ -62,6 +85,35 @@ It opens https://localhost:44356/umbraco. On the first run, Umbraco's installer 
 Check `wwwroot/media/` after a refusal as well as the message. The original version of this package showed a correct refusal while leaving the file on a public URL.
 
 **Don't commit what the installer writes into `appsettings.json`.** It adds `Umbraco:CMS:Global:Id` and a generated `Imaging:HMACSecretKey`. Discard those changes before committing; CI fails if a key is committed.
+
+### Testing Forms uploads
+
+The test site references Umbraco Forms so the Forms filter can be tried through a real form. A site on localhost shows Forms' licence notice but still lets you build and submit forms.
+
+1. Set up the form and a page to show it. Do this once; the form and page live in your local database and are not committed.
+   - In **Forms**, create a form with a **File upload** field and turn on **Allow all files**, so Forms' own extension check does not hide what SafeMedia does. Save it and copy its id from the address bar (the GUID after `/edit/`).
+   - Put that id in `tests/Simplepage.Umbraco.SafeMedia.TestSite/appsettings.Local.json`, which is gitignored: `{ "Simplepage": { "TestSite": { "FormId": "<your form id>" } } }`
+   - In **Settings > Document Types**, create a **Document Type with Template** named `uploadTest` and tick **Allow at root**. In **Content**, create a page of that type and **Save and publish** it.
+   - The repo already has `Views/uploadTest.cshtml`, so the template renders your form straight away. Umbraco re-saves that file when you create the template (it adds a byte order mark and changes nothing else), so git shows it as modified. Discard that with `git checkout -- tests/Simplepage.Umbraco.SafeMedia.TestSite/Views/uploadTest.cshtml`.
+   - Browse to `/`: you should see the form. A Forms submit posts back through Umbraco's content routing, so the form has to be on a published page like this. The same form on a plain MVC route does not reach Forms.
+2. Submit the corpus files. Each one in `corpus/reject/` and `corpus/pdf/reject/` should be refused with *"The file uploaded is not allowed."*, with the reason in the log. Every one in the accept folders should be accepted.
+3. The three that only the file name catches are `html-document-named-svg`, `html-renamed-pdf` and `content-before-header`. They are the ones that prove the filter is doing something the analyzer cannot.
+
+To check the serving headers, request a stored file under `wwwroot/media/forms/upload/` and look at the response headers. An anonymous request gets 403 from Forms but still carries the headers, which proves the path match. Open the same URL while logged in to the back office to see the 200: an SVG with a script must not run it. A file elsewhere in `wwwroot/media/` must have none of these headers. Settings reload without a restart, so you can try `Simplepage:SafeMedia:Serving` changes in `appsettings.Local.json` live.
+
+**Always check the site still starts without Forms.** Build and run with Forms left out, into a fresh output folder so DLLs from an earlier build don't hide a problem:
+
+```
+dotnet build tests/Simplepage.Umbraco.SafeMedia.TestSite -p:NoForms=true -o <empty folder>
+```
+
+Then run the built `.dll` from the test site folder and check `/umbraco` returns 200. (`/` returns 500 if your test page renders a form, which needs Forms.)
+
+## Gotchas
+
+- **2026-11-12. The test site returns 500 "Boot failed" on a fresh clone.** Symptom: `/` and `/umbraco` both return 500, and the log says `Configured database is reporting as not being available` with `SQLite Error 14: unable to open database file`. No installer appears. Cause: the SQLite database file does not exist yet. Reproduced in a fresh clone of `main` with none of the 1.3.0 changes, so it is not caused by them. Fix: create the database with an unattended install in `appsettings.Local.json`, as described under "Testing in a real back office".
+
+- **2026-11-11. A class that names a Forms type stops Umbraco starting on a site without Forms.** Symptom: boot fails with `ReflectionTypeLoadException ... Could not load file or assembly 'Umbraco.Forms.Core'`, thrown from `TypeFinder.GetTypesWithFormattedException`. Cause: Umbraco calls `GetTypes()` on every installed assembly at startup, and any type whose interfaces or signatures name an assembly the site lacks makes that throw. Guarding the registration does not help, because the type existing is enough. We hit it with a handler for `FormValidateNotification`. Fix: no Forms type anywhere in this package. Integrations with another package go in as name-matched filters, like `SafeMediaFormsFilter`.
 
 ## How the test project is built
 
