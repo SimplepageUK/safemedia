@@ -73,15 +73,29 @@ It checks every PDF twice, and both checks must pass:
 
 Real PDFs that have been edited many times often carry leftover objects outside the index. If the second check finds nothing dangerous in them, the file is accepted and the editor sees a warning (in Umbraco's amber warning style) suggesting a clean re-export.
 
+## Umbraco Forms
+
+If your site uses Umbraco Forms, SafeMedia also checks files posted through a Forms **File upload** field. There is nothing to turn on. A refused file is not stored, and the form is shown again with an error on that field.
+
+- **What the submitter sees.** A generic message, *"The file uploaded is not allowed."*, the same as Forms' own. These are anonymous uploads, so the reason is not shown on the page.
+- **Where the reason goes.** The Umbraco log, as a warning: *"SafeMedia refused PDF upload 'x.pdf' from a Forms submission before it was stored. Reasons: ..."*
+- **What is checked.** Any `.svg`, `.svgz` or `.pdf`, by file name, with the same rules as media. Anything else that looks like an SVG or PDF is caught by content, as for media.
+- **How files are served.** Forms serves what visitors upload from the same origin as the back office, so a hostile SVG that was ever stored would run as the editor who opened it. SafeMedia adds `X-Content-Type-Options: nosniff` to files in the Forms upload folder and serves SVGs with `Content-Security-Policy: sandbox`: they still display, but their scripts cannot run. This applies to files already stored too. It covers only that folder: your media library and front end are untouched. Change or turn it off under [Serving settings](#serving-settings). If your uploads are stored in cloud storage and served from its own URL, this never sees them and the storage's own headers apply.
+- **Without Forms.** Nothing changes. SafeMedia does not depend on Umbraco Forms.
+
+Tested with Umbraco Forms 17.6.2. SafeMedia checks for SVG and PDF files with active content. It is not a malware scanner, so if your uploads go to storage with malware scanning (for example Microsoft Defender for Storage), keep that as well. They catch different things.
+
 ## How it hooks into Umbraco
 
-Three layers, outermost first.
+Three layers, outermost first, plus one for Forms.
 
 1. **At upload, with the reason.** An MVC filter on Umbraco's temporary-file upload checks any `.svg` or `.pdf` before Umbraco stores it. If it fails, the editor sees why straight away: *"This SVG was not saved because it contains an inline event handler (onload)..."* Nothing is written.
 
 2. **At upload, for everything else.** An `IFileStreamSecurityAnalyzer`, which Umbraco runs for every temporary file however it arrives, refuses anything that looks like SVG or PDF. This catches uploads that don't come through the back office endpoint. It can only answer yes or no, so the editor gets Umbraco's generic message there. The reasons go to the log.
 
 3. **At save.** A `MediaSavingNotification` handler re-checks any `.svg` or `.pdf` on the media item, cancels the save with the same message, and deletes the file if the save has just written it. This covers files already in the media library before the package was installed: they are re-checked the next time anyone saves them. It is also where a PDF warning is shown.
+
+4. **At a Forms submit.** The analyzer in layer 2 already runs for Forms uploads, but it is given a stream and no file name. An MVC filter on Forms' submit action checks `.svg`, `.svgz` and `.pdf` files by name and adds an error to that field, so nothing is stored. It matches the action by name, so no Forms type is loaded and a site without Forms is unaffected.
 
 A small back office extension (`App_Plugins/Simplepage.SafeMedia`) makes sure that warning appears on drag-and-drop uploads too. Umbraco 17.7 and earlier drop notification messages from any response that creates an item, so for a new item SafeMedia sends the warning in its own header and the extension shows it. Umbraco fixed this in 17.8; the extension is harmless there and nothing is shown twice.
 
@@ -112,6 +126,11 @@ None is needed. Every switch below only widens or narrows one named thing, and t
       "Pdf": {
         "AllowLinks": true,
         "AllowAttachments": false
+      },
+      "Serving": {
+        "Enabled": true,
+        "Svg": "Sandbox",
+        "Pdf": "None"
       }
     }
   }
@@ -132,6 +151,19 @@ None is needed. Every switch below only widens or narrows one named thing, and t
 
 There is no Strict/Relaxed mode on purpose: each switch names the one thing you are accepting.
 
+### Serving settings
+
+These control the headers on files served from the Forms upload folder. See [Umbraco Forms](#umbraco-forms).
+
+| Setting | Default | What it does |
+|---|---|---|
+| `Serving:Enabled` | `true` | Turn the headers off altogether. |
+| `Serving:Paths` | the Forms upload folder | URL folders to apply this to, for example `["/media/forms/upload"]`. Leave unset for the default, which follows your Umbraco media path. Setting it replaces the default; it does not add to it. |
+| `Serving:Svg` | `Sandbox` | How `.svg` and `.svgz` files are served. `Sandbox` still displays them but stops their scripts running. `Attachment` makes them download instead. `None` leaves them as they are. |
+| `Serving:Pdf` | `None` | The same three choices for PDFs. `Sandbox` stops the browser's built-in PDF viewer, so it is off by default. |
+
+Every file in a covered folder also gets `X-Content-Type-Options: nosniff` while `Enabled` is `true`.
+
 ## Known false positives
 
 If SafeMedia refuses a file you think is legitimate, please [tell us](https://github.com/SimplepageUK/safemedia/blob/main/CONTRIBUTING.md#2-false-positives). These are the ones we know about:
@@ -150,6 +182,7 @@ If SafeMedia refuses a file you think is legitimate, please [tell us](https://gi
 |---|---|
 | Umbraco | 17.x |
 | .NET | 10 |
+| Umbraco Forms | Optional. 17.x, tested with 17.6.2 |
 
 **Umbraco 13 is not supported.** Its upload pipeline is different (no temporary file service; the file is written during the save request), so it would need a separate integration and a second CI matrix. Umbraco 13 reaches the end of security support in December 2026. If you need it, open an issue - the validator itself has no Umbraco dependency and would carry over unchanged.
 
@@ -157,7 +190,8 @@ If SafeMedia refuses a file you think is legitimate, please [tell us](https://gi
 
 - **1.1** - Health check for SVGs already in the media library. *Released.*
 - **1.2** - PDF: refuse JavaScript, actions beyond navigation, attachments and XFA forms. *Released.*
-- **1.3** - An optional clean mode, for sites that would rather strip than reject.
+- **1.3** - Umbraco Forms file uploads checked by file name. *Released.*
+- **1.4** - An optional clean mode, for sites that would rather strip than reject.
 
 ## Contributing
 

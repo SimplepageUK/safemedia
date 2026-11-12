@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -26,7 +27,14 @@ public sealed class SafeMediaComposer : IComposer
             .AddOptions<PdfSafetyOptions>()
             .BindConfiguration(PdfSafetyOptions.SectionName);
 
+        builder.Services
+            .AddOptions<ServingOptions>()
+            .BindConfiguration(ServingOptions.SectionName);
+
         builder.Services.AddSingleton<MediaFileInspector>();
+
+        // Headers for files served from the Forms upload folder. See ServingOptions.
+        builder.Services.AddTransient<IStartupFilter, SafeMediaServingStartupFilter>();
 
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IFileStreamSecurityAnalyzer, SafeMediaFileStreamAnalyzer>());
@@ -34,7 +42,14 @@ public sealed class SafeMediaComposer : IComposer
         // Three layers, outermost first: the upload filter refuses with a message the editor can
         // act on; the analyzer refuses anything that reaches the temporary file service another
         // way; the save guard catches what neither saw and cleans up after it.
-        builder.Services.Configure<MvcOptions>(options => options.Filters.Add<SafeMediaUploadFilter>());
+        builder.Services.Configure<MvcOptions>(options =>
+        {
+            options.Filters.Add<SafeMediaUploadFilter>();
+
+            // Does nothing unless Umbraco Forms is installed: it matches Forms' submit action by
+            // name, so no Forms type is referenced here.
+            options.Filters.Add<SafeMediaFormsFilter>();
+        });
 
         builder.AddNotificationHandler<MediaSavingNotification, SafeMediaSaveGuard>();
 
